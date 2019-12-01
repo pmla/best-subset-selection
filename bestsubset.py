@@ -53,7 +53,7 @@ def build_skeleton_model(model_type, A, b, num_features, initial_features,
         for k, v in initial_features.items():
             y[k].start = 1
             x[k].start = v
-    
+
     return model, x, y
 
 
