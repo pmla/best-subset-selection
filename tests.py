@@ -69,7 +69,7 @@ def test_hierarchy(optfunc, k):
     rng.shuffle(columns)
     hierarchy = [(columns[i], columns[i + 1]) for i in range(numh)]
     status, objective, result = optfunc(A, b, k, hierarchy=hierarchy,
-                                                 params=params)
+                                        params=params)
     columns = result.keys()
     for i, j in hierarchy:
         if j in columns:
