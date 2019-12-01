@@ -2,8 +2,8 @@ import numpy as np
 from gurobipy import Model, GRB
 
 
-def build_skeleton_model(model_type, n, num_features, params):
-
+def build_skeleton_model(model_type, A, b, num_features, initial_features,
+                         params):
     # Create model
     model = Model(model_type)
 
@@ -14,6 +14,7 @@ def build_skeleton_model(model_type, n, num_features, params):
         model.setParam(k, v)
 
     # Create common variables
+    m, n = A.shape
     x = {j: model.addVar(vtype=GRB.CONTINUOUS,
                          lb=-float("inf"),
                          ub=float("inf")) for j in range(n)}
@@ -27,6 +28,32 @@ def build_skeleton_model(model_type, n, num_features, params):
     # Set column constraints
     model.addConstr(sum([y[j] for j in range(n)]) == num_features,
                     'num_features')
+
+    # Set initial values
+    if len(initial_features) > num_features:
+        raise Exception("initial_features contains more elements ({0}) than "
+                        "num_features ({1})".format(len(initial_features),
+                                                    num_features))
+    if len(initial_features) > 0:
+        remaining = sorted(set(range(n)) - set(initial_features))
+        remaining = remaining[:num_features - len(initial_features)]
+        for k in remaining:
+            initial_features[k] = 0
+
+        if model_type == "miqp":
+            keys = sorted(initial_features)
+            res = np.linalg.lstsq(A[:, keys], b, rcond=-1)
+            for k, v in zip(keys, res[0]):
+                initial_features[k] = v
+
+        for j in range(n):
+            x[j].start = 0
+            y[j].start = 0
+
+        for k, v in initial_features.items():
+            y[k].start = 1
+            x[k].start = v
+    
     return model, x, y
 
 
@@ -39,18 +66,19 @@ def solve_model(model, x, y):
     return status, objective, result
 
 
-def solve_rmse(A, b, num_features, user_params={}):
+def solve_rmse(A, b, num_features, initial_features={}, params={}):
 
     # Gurobi has some numerical problems with MIQP if presolve is used and
     # needs tight tolerances to stop constraint violations
-    params = {'Presolve': 0,
-              'FeasibilityTol': 1E-9,
-              'IntFeasTol': 1E-9,
-              'MIPFocus': 2}    # Focus on proving optimality
-    params.update(user_params)
-    m, n = A.shape
-    model, x, y = build_skeleton_model("miqp", n, num_features, params)
+    _params = {'Presolve': 0,
+               'FeasibilityTol': 1E-9,
+               'IntFeasTol': 1E-9,
+               'MIPFocus': 2}    # Focus on proving optimality
+    _params.update(params)
+    model, x, y = build_skeleton_model("miqp", A, b, num_features,
+                                       initial_features, _params)
 
+    m, n = A.shape
     if n < m:
         # Over-determined case
         Q = A.T @ A
@@ -79,21 +107,21 @@ def solve_rmse(A, b, num_features, user_params={}):
     return solve_model(model, x, y)
 
 
-def solve_mae(A, b, num_features, user_params={}):
+def solve_mae(A, b, num_features, initial_features={}, params={}):
 
-    params = {'Presolve': 2,    # Apply maximum presolve
-              'MIPGap': 0,      # Prevent early termination
-              'MIPFocus': 2}    # Focus on proving optimality
-    params.update(user_params)
+    _params = {'Presolve': 2,    # Apply maximum presolve
+               'MIPGap': 0,      # Prevent early termination
+               'MIPFocus': 2}    # Focus on proving optimality
+    _params.update(params)
+    model, x, y = build_skeleton_model("mip", A, b, num_features,
+                                       initial_features, _params)
+
+    # Define errors
     m, n = A.shape
-    model, x, y = build_skeleton_model("mip", n, num_features, params)
-
-    # Under-determined (or high-dimensional) case
     error = {i: model.addVar(vtype=GRB.CONTINUOUS,
                              lb=0,
                              ub=+float("inf")) for i in range(m)}
 
-    # Define errors
     for i in range(m):
         model.addConstr(error[i] >= sum([A[i, j] * x[j]
                                         for j in range(n)]) - b[i])
