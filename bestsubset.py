@@ -3,7 +3,7 @@ from gurobipy import Model, GRB
 
 
 def build_skeleton_model(model_type, A, b, num_features, initial_features,
-                         params):
+                         hierarchy, params):
     # Create model
     model = Model(model_type)
 
@@ -28,6 +28,10 @@ def build_skeleton_model(model_type, A, b, num_features, initial_features,
     # Set column constraints
     model.addConstr(sum([y[j] for j in range(n)]) == num_features,
                     'num_features')
+
+    # Set hierarchy constraints
+    for i, j in hierarchy:
+        model.addConstr(y[j] <= y[i], 'hierarchy_{0}_{1}'.format(i, j))
 
     # Set initial values
     if len(initial_features) > num_features:
@@ -66,7 +70,8 @@ def solve_model(model, x, y):
     return status, objective, result
 
 
-def solve_rmse(A, b, num_features, initial_features={}, params={}):
+def solve_rmse(A, b, num_features, initial_features={}, hierarchy=[],
+               params={}):
 
     # Gurobi has some numerical problems with MIQP if presolve is used and
     # needs tight tolerances to stop constraint violations
@@ -76,7 +81,7 @@ def solve_rmse(A, b, num_features, initial_features={}, params={}):
                'MIPFocus': 2}    # Focus on proving optimality
     _params.update(params)
     model, x, y = build_skeleton_model("miqp", A, b, num_features,
-                                       initial_features, _params)
+                                       initial_features, hierarchy, _params)
 
     m, n = A.shape
     if n < m:
@@ -107,14 +112,15 @@ def solve_rmse(A, b, num_features, initial_features={}, params={}):
     return solve_model(model, x, y)
 
 
-def solve_mae(A, b, num_features, initial_features={}, params={}):
+def solve_mae(A, b, num_features, initial_features={}, hierarchy=[],
+              params={}):
 
     _params = {'Presolve': 2,    # Apply maximum presolve
                'MIPGap': 0,      # Prevent early termination
                'MIPFocus': 2}    # Focus on proving optimality
     _params.update(params)
     model, x, y = build_skeleton_model("mip", A, b, num_features,
-                                       initial_features, _params)
+                                       initial_features, hierarchy, _params)
 
     # Define errors
     m, n = A.shape

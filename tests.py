@@ -41,7 +41,7 @@ def test_rmse_underdetermined(k):
 
 @pytest.mark.parametrize("k", range(1, 5))
 def test_mae(k):
-    m, n = 10, 20
+    m, n = 20, 10
     rng = np.random.RandomState(0)
     A = rng.uniform(size=(m, n))
     b = rng.uniform(size=m)
@@ -52,6 +52,28 @@ def test_mae(k):
     deltas = A[:, list(columns)] @ list(values) - b
     objective_check = np.sum(np.abs(deltas))
     assert_allclose(objective, objective_check, atol=TOL)
+
+
+@pytest.mark.parametrize("k", range(5, 8))
+@pytest.mark.parametrize("optfunc", [bestsubset.solve_rmse,
+                                     bestsubset.solve_mae])
+def test_hierarchy(optfunc, k):
+    m, n = 20, 10
+    rng = np.random.RandomState(0)
+    A = rng.uniform(size=(m, n))
+    b = rng.uniform(size=m)
+    params = {'OutputFlag': 0, 'Threads': 1, 'TimeLimit': 3}
+
+    numh = k - 1
+    columns = list(range(n))
+    rng.shuffle(columns)
+    hierarchy = [(columns[i], columns[i + 1]) for i in range(numh)]
+    status, objective, result = optfunc(A, b, k, hierarchy=hierarchy,
+                                                 params=params)
+    columns = result.keys()
+    for i, j in hierarchy:
+        if j in columns:
+            assert i in columns
 
 
 @pytest.mark.parametrize("optfunc", [bestsubset.solve_rmse,
@@ -66,7 +88,8 @@ def test_initial_features(optfunc):
 
     initial_features = {}
     for k in range(1, 5):
-        status, objective, result = optfunc(A, b, k, initial_features, params)
+        status, objective, result = optfunc(A, b, k, initial_features,
+                                            params=params)
         initial_features = result
         _, objective1, _ = optfunc(A, b, k + 1, initial_features,
                                    params=tparams)
