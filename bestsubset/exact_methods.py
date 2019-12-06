@@ -1,9 +1,11 @@
 import numpy as np
-from gurobipy import Model, GRB
 
 
 def build_skeleton_model(model_type, A, b, num_features, initial_features,
                          hierarchy, params):
+
+    from gurobipy import Model, GRB
+
     # Create model
     model = Model(model_type)
 
@@ -73,6 +75,8 @@ def solve_model(model, x, y):
 def solve_rmse(A, b, num_features, initial_features={}, hierarchy=[],
                params={}):
 
+    from gurobipy import Model, GRB
+
     # Gurobi has some numerical problems with MIQP if presolve is used and
     # needs tight tolerances to stop constraint violations
     _params = {'Presolve': 0,
@@ -114,6 +118,8 @@ def solve_rmse(A, b, num_features, initial_features={}, hierarchy=[],
 
 def solve_mae(A, b, num_features, initial_features={}, hierarchy=[],
               params={}):
+
+    from gurobipy import Model, GRB
 
     _params = {'Presolve': 2,    # Apply maximum presolve
                'MIPGap': 0,      # Prevent early termination
