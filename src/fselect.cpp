@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -121,6 +123,9 @@ static void update(int n, int i, int a, int* features, double* Q, double* pQ, do
 
 static void _fselect(int m, int n, double* A, double* b, int* features, double* weights) {
 
+	memset(features, 0, n * sizeof(int));
+	memset(weights, 0, n * n * sizeof(double));
+
 	std::vector< int > remaining(n, 0);
 	for (int i=0;i<n;i++) {
 		remaining[i] = i;
@@ -145,14 +150,12 @@ static void _fselect(int m, int n, double* A, double* b, int* features, double* 
 	calculate_gramian(m, n, A, Q);
 	matrixT_vector(m, n, A, b, c);
 
-
 	for (int i=0;i<n;i++) {
-		int best_index = -1, best_feature = -1;
+		int best_index = -1;
 		double best_obj = INFINITY;
 
 		for (int j=0;j<(int)remaining.size();j++) {
 			int trial = remaining[j];
-
 			update(n, i, trial, features, Q, pQ, L, c, pc, x, y);
 
 			// calculate sum of squared residuals
@@ -160,19 +163,26 @@ static void _fselect(int m, int n, double* A, double* b, int* features, double* 
 			double obj = vector_dot(i + 1, x, y) - 2 * vector_dot(i + 1, pc, x) + constant;
 			if (obj < best_obj) {
 				best_index = j;
-				best_feature = trial;
 				best_obj = obj;
 			}
 		}
 
+		if (best_index == -1) {
+			break;
+		}
+
+		int best_feature = remaining[best_index];
 		remaining[best_index] = remaining.back();
 		remaining.pop_back();
 		update(n, i, best_feature, features, Q, pQ, L, c, pc, x, y);
 		features[i] = best_feature;
-
 		for (int j=0;j<i+1;j++) {
 			weights[i + features[j] * n] = x[j];
 		}
+	}
+
+	for (int i=0;i<(int)remaining.size();i++) {
+		features[i] = remaining[i];
 	}
 }
 

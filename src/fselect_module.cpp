@@ -53,11 +53,9 @@ static PyObject* solve_greedy(PyObject* self, PyObject* args, PyObject* kwargs)
 	npy_intp dim[2] = {n, n};
 	PyObject* obj_features = PyArray_SimpleNew(1, dim, NPY_INT);
 	int* features = (int*)PyArray_DATA((PyArrayObject*)obj_features);
-	memset(features, 0, n * sizeof(int));
 
 	PyObject* obj_weights = PyArray_SimpleNew(2, dim, NPY_DOUBLE);
 	double* weights = (double*)PyArray_DATA((PyArrayObject*)obj_weights);
-	memset(weights, 0, n * n * sizeof(double));
 
 	fselect(m, n, A, b, features, weights);
 
